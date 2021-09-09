@@ -1,0 +1,66 @@
+variables:
+  REGISTRY: "hub.paas.vn"
+  HUB_USERNAME: "gitlab-runner"
+  HUB_NAMESPACE: "devteam"
+  GITOPS_USER: "gitops-bot"
+  GITOPS_URL: "https://$GITOPS_USER:$GITOPS_TOKEN@git.paas.vn/devops-team/kubernetes/charts.git"
+  IMAGE: $CI_PROJECT_NAME
+before_script:
+  - |
+    curl --header "PRIVATE-TOKEN: $CI_TEMPLATE_TOKEN" "https://git.paas.vn/api/v4/projects/2003/repository/files/ci-function.sh/raw?ref=master" -o ci-function.sh
+  - . ci-function.sh
+  - export TAG=$(GetTag)
+  - export VALUES_FILE=$(GetValuesFile)
+  - export PREFIX_APPLICATION=$(GetPrefixApplication)
+  - export APPLICATION=$PREFIX_APPLICATION/$IMAGE
+  - docker login -u "$HUB_USERNAME" -p "$HUB_PASSWORD" $REGISTRY
+
+after_script:
+  - docker logout
+stages:
+  - analysis
+  - test
+  - build
+  - deploy
+
+################## Build image for all enviroment ###################
+build-image:
+  stage: build
+  script:
+    - Build
+  tags:
+    - devops-runner-prod
+  only:
+    - develop
+    - staging
+    - master
+
+################# Deploy ####################################
+
+deploy-dev:
+  stage: deploy
+  script:
+    - Deploy
+  tags:
+    - devops-runner-prod
+  only:
+    - develop
+
+deploy-staging:
+  stage: deploy
+  script:
+    - Deploy
+  tags:
+    - devops-runner-prod
+  only:
+    - staging
+
+deploy-prod:
+  stage: deploy
+  script:
+    - Deploy
+  tags:
+    - devops-runner-prod
+  only:
+    - master
+  when: manual
